@@ -1,28 +1,23 @@
-# BHOOMERA
+# Bhoomera Realty
 
-Premium React real-estate platform with Supabase authentication, PostgreSQL data, storage-ready listing architecture and an Express username-resolution service.
+Premium React website for Hyderabad properties. The default workflow uses Google Forms, a private Google Sheet and a read-only approved-listings feed. No paid database or separately hosted backend is required.
 
-## Setup
+Customers complete the Google Form on Sell. The owner reviews submissions in Google Sheets, edits property details and public photo links, and approves listings for Buy or Rent. The `/#admin` page links the owner to the private Sheet, which uses Google sign-in. Viewing requests use WhatsApp.
 
-1. Create a Supabase project.
-2. Run `supabase/schema.sql` in the Supabase SQL editor.
-3. Copy `.env.example` to `.env` and add your project URL, anon key and service-role key.
-4. Install and run:
+## Local setup
 
-```powershell
-npm install
-npm run dev
-npm run server
-```
+Use Node.js 22 or newer. Run `npm install`, then `npm run dev`. No database credentials or local API server are required for Google mode.
 
-## Supabase configuration
+See [Google workflow instructions](GOOGLE-WORKFLOW.md) for the live Form and Sheet links, approval instructions, privacy and script configuration.
 
-Enable email confirmation in Supabase Authentication settings. Configure site URL and redirect URLs. Never expose the service-role key in frontend code.
+## Production
 
-The frontend uses database records once Supabase is configured. Until then it displays clearly separate development presentation data and reports that authentication is not configured.
+Run `npm run build` and deploy the generated `dist/` directory to a static host. Customer submissions and approvals are saved by Google, so the website host does not need persistent disk storage.
 
-## Build
+Keep the response Sheet Restricted. Only the Apps Script public feed and approved property photo files should be accessible to website visitors.
 
-```powershell
-npm run build
-```
+The previous file-backed implementation is retained as an optional fallback. Its separate setup is documented in [file-backed management](PROPERTY-MANAGEMENT.md); those server requirements do not apply to the default Google workflow.
+
+## Checks
+
+`npm test` runs the file-backed workflow tests. `npm run build` checks TypeScript and builds the website.

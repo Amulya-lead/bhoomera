@@ -1,0 +1,87 @@
+import { GOOGLE_WORKFLOW, googleApi, GoogleSellPage, GoogleOwnerPage } from './googleWorkflow'
+import { FormEvent, useEffect, useState } from 'react'
+import { ArrowRight, CheckCircle2, ImagePlus, MapPin, X } from 'lucide-react'
+import './workflow.css'
+
+export type Property = { id:string; title:string; description?:string; city:string; locality?:string; address?:string; price:number|string; beds:number; baths:number; area:number|string; area_unit?:string; purpose:string; property_type?:string; image?:string; cover_image?:string; images?:string[]; approvals?:string; facing?:string; road_width?:string; amenities?:string; status?:string; contact_name?:string; contact_phone?:string; contact_email?:string; source?:string; created_at?:string }
+export async function api<T=any>(url:string, options:RequestInit={}):Promise<T> {
+  if(GOOGLE_WORKFLOW)return await googleApi(url) as T
+  const response=await fetch('/api'+url,{...options,credentials:'same-origin',headers:{'Content-Type':'application/json',...options.headers}})
+  const body=await response.json().catch(()=>({error:'Server unavailable. Please try again.'}))
+  if(!response.ok)throw new Error(body.error||'Request failed')
+  return body
+}
+const blank:Property={id:'',title:'',description:'',city:'Hyderabad',locality:'',address:'',price:'',area:'',area_unit:'sq yd',beds:0,baths:0,purpose:'sale',property_type:'Plot',approvals:'',facing:'',road_width:'',amenities:'',contact_name:'',contact_phone:'',contact_email:'',images:[],status:'pending'}
+const formatPrice=(value:number|string)=>Number(value).toLocaleString('en-IN',{style:'currency',currency:'INR',maximumFractionDigits:0})
+
+export function PropertyForm({initial,owner=false,onSaved,onCancel}:{initial?:Property;owner?:boolean;onSaved:(p:Property)=>void;onCancel?:()=>void}) {
+  const [p,setP]=useState<Property>(()=>({...blank,...initial,images:initial?.images||[]}))
+  const [busy,setBusy]=useState(false),[uploading,setUploading]=useState(false),[error,setError]=useState('')
+  const update=(key:keyof Property,value:any)=>setP(current=>({...current,[key]:value}))
+  async function addPhotos(files:FileList|null){
+    if(!files?.length)return
+    setError('');setUploading(true)
+    try {
+      if((p.images?.length||0)+files.length>6)throw new Error('You can add up to 6 photos.')
+      const images=await Promise.all(Array.from(files).map(file=>new Promise<string>((resolve,reject)=>{
+        if(!['image/jpeg','image/png','image/webp'].includes(file.type)||file.size>2*1024*1024){reject(new Error('Use JPG, PNG or WebP photos under 2 MB each.'));return}
+        const reader=new FileReader();reader.onload=()=>resolve(String(reader.result));reader.onerror=()=>reject(new Error('Could not read photo'));reader.readAsDataURL(file)
+      })))
+      setP(current=>({...current,images:[...(current.images||[]),...images]}))
+    }catch(e){setError((e as Error).message)}finally{setUploading(false)}
+  }
+  async function submit(e:FormEvent){e.preventDefault();setBusy(true);setError('');try{const data=await api<Property>(owner?(p.id?'/admin/properties/'+p.id:'/admin/properties'):'/submissions',{method:owner&&p.id?'PATCH':'POST',body:JSON.stringify(p)});onSaved(data)}catch(e){setError((e as Error).message)}finally{setBusy(false)}}
+  const field=(key:keyof Property,label:string,required=false,type='text')=><label key={key}>{label}{required?' *':''}<input name={key} type={type} required={required} value={String(p[key]??'')} min={type==='number'?(['beds','baths'].includes(key)?0:0.01):undefined} step={type==='number'?(['beds','baths'].includes(key)?'1':'any'):undefined} maxLength={type==='text'?200:undefined} onChange={e=>update(key,e.target.value)}/></label>
+  return <form className="property-form" onSubmit={submit}>
+    <fieldset disabled={busy}><legend>Property details</legend><div className="form-grid">
+      <label className="full">Property title *<input required minLength={5} maxLength={200} value={p.title} onChange={e=>update('title',e.target.value)} placeholder="e.g. East-facing residential plot in Yacharam"/></label>
+      <label>Property type *<select value={p.property_type} onChange={e=>update('property_type',e.target.value)}>{['Plot','Land','Apartment','House','Villa','Commercial'].map(t=><option key={t}>{t}</option>)}</select></label>
+      <label>Listing purpose *<select value={p.purpose} onChange={e=>update('purpose',e.target.value)}><option value="sale">For sale (Buy page)</option><option value="rent">For rent (Rent page)</option></select></label>
+      {field('price',p.purpose==='rent'?'Monthly rent (₹)':'Asking price (₹)',true,'number')}{field('area','Area',true,'number')}
+      <label>Area unit *<select value={p.area_unit} onChange={e=>update('area_unit',e.target.value)}>{['sq yd','sq ft','acres'].map(t=><option key={t}>{t}</option>)}</select></label>
+      {field('city','City / district',true)}{field('locality','Locality / village',true)}{field('address','Location / address')}
+      {field('beds','Bedrooms',false,'number')}{field('baths','Bathrooms',false,'number')}
+      {field('approvals','Approval details (as stated by owner)')}{field('facing','Facing')}{field('road_width','Road width')}
+      <label className="full">Description *<textarea required minLength={20} maxLength={5000} rows={5} value={p.description} onChange={e=>update('description',e.target.value)} placeholder="Describe the property, access, surroundings and important details."/></label>
+      <label className="full">Amenities / features<textarea rows={2} maxLength={2000} value={p.amenities} onChange={e=>update('amenities',e.target.value)} placeholder="Water connection, road access, parking…"/></label>
+    </div></fieldset>
+    <fieldset disabled={busy||uploading}><legend>Property photos</legend><p className="form-help">Up to 6 JPG, PNG or WebP photos, under 2 MB each. The first photo is the cover.</p><label className="photo-upload"><ImagePlus size={22}/>{uploading?'Reading photos…':'Add property photos'}<input type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={e=>{void addPhotos(e.target.files);e.target.value=''}}/></label><div className="photo-previews">{p.images?.map((src,i)=><div key={src}><img src={src} alt={`Property photo ${i+1}`}/><button type="button" aria-label={`Remove photo ${i+1}`} onClick={()=>update('images',p.images?.filter((_,index)=>index!==i))}><X size={14}/></button>{i===0&&<span>Cover photo</span>}</div>)}</div></fieldset>
+    <fieldset disabled={busy}><legend>{owner?'Seller contact (private)':'Your contact details'}</legend><p className="form-help">These details are visible only to the Bhoomera Realty owner.</p><div className="form-grid">{field('contact_name','Name',!owner)}{field('contact_phone','Phone number',!owner,'tel')}{field('contact_email','Email address',false,'email')}</div></fieldset>
+    {owner&&<label className="status-select">Publication status<select value={p.status} onChange={e=>update('status',e.target.value)}><option value="pending">Pending review — hidden</option><option value="approved">Approved — publish on website</option><option value="rejected">Rejected — hidden</option><option value="archived">Archived — unpublish</option></select></label>}
+    {!owner&&<label className="consent"><input type="checkbox" required/>I confirm I’m authorized to share this property and agree to be contacted about this submission.</label>}
+    {error&&<p className="workflow-error" role="alert">{error}</p>}
+    <div className="form-actions"><button className="workflow-primary" disabled={busy||uploading}>{busy?'Saving…':owner?'Save property':"Submit for review"}<ArrowRight size={17}/></button>{onCancel&&<button type="button" onClick={onCancel}>Cancel</button>}</div>
+    {!owner&&<p className="form-help">Your property will appear publicly only after Bhoomera Realty reviews and approves it.</p>}
+  </form>
+}
+
+function FileSellPage(){const[saved,setSaved]=useState<Property|null>(null);return <main className="workflow-page"><div className="workflow-heading"><span className="kicker">SELL WITH BHOOMERA REALTY</span><h1>Your property.<br/><em>Our personal attention.</em></h1><p>Share the details. We’ll review your property and contact you about the next steps.</p></div>{saved?<section className="submission-success" role="status"><CheckCircle2 size={38}/><h2>Property submitted for review.</h2><p>Thank you. Your details have been saved and will be reviewed before anything is published.</p><small>Reference: {saved.id}</small><button onClick={()=>setSaved(null)}>Submit another property</button><a href="#buy">Browse properties <ArrowRight size={16}/></a></section>:<PropertyForm onSaved={setSaved}/>}</main>}
+
+function FileOwnerConsole(){
+  const[authenticated,setAuthenticated]=useState(false),[checking,setChecking]=useState(true),[rows,setRows]=useState<Property[]>([]),[enquiries,setEnquiries]=useState<any[]>([]),[editor,setEditor]=useState<Property|null>(null),[tab,setTab]=useState('pending'),[error,setError]=useState(''),[notice,setNotice]=useState(''),[busy,setBusy]=useState(false)
+  async function refresh(){try{const[p,e]=await Promise.all([api<Property[]>('/admin/properties'),api<any[]>('/admin/enquiries')]);setRows(p);setEnquiries(e)}catch(e){setError((e as Error).message)}}
+  useEffect(()=>{api('/admin/session').then(()=>{setAuthenticated(true);void refresh()}).catch(()=>{}).finally(()=>setChecking(false))},[])
+  async function login(e:FormEvent<HTMLFormElement>){e.preventDefault();setBusy(true);setError('');const f=new FormData(e.currentTarget);try{await api('/admin/login',{method:'POST',body:JSON.stringify({username:f.get('username'),password:f.get('password')})});setAuthenticated(true);await refresh()}catch(e){setError((e as Error).message)}finally{setBusy(false)}}
+  async function status(p:Property,next:string){setError('');setBusy(true);try{await api('/admin/properties/'+p.id,{method:'PATCH',body:JSON.stringify({status:next})});setNotice(next==='approved'?'Property published on the website.':'Property status updated.');await refresh()}catch(e){setError((e as Error).message)}finally{setBusy(false)}}
+  if(checking)return <main className="workflow-page">Checking owner access…</main>
+  if(!authenticated)return <main className="owner-login"><a href="#top">← Back to Bhoomera Realty</a><form onSubmit={login}><span className="kicker">BHOOMERA REALTY</span><h1>Owner dashboard</h1><p>Manage submissions, property details and published listings.</p><label>Username<input name="username" autoComplete="username" required/></label><label>Password<input name="password" type="password" autoComplete="current-password" required/></label>{error&&<p className="workflow-error" role="alert">{error}</p>}<button className="workflow-primary" disabled={busy}>{busy?'Signing in…':'Sign in'}<ArrowRight size={17}/></button></form></main>
+  const visible=rows.filter(p=>tab==='all'||p.status===tab)
+  return <main className="owner-page"><header><div><span className="kicker">BHOOMERA REALTY / OWNER</span><h1>{editor?(editor.id?'Review & edit property':'Add a property'):'Your properties, managed.'}</h1></div><div><a href="#buy">View website</a><button onClick={()=>{setEditor(null);setNotice('');void refresh()}}>Refresh</button><button onClick={async()=>{await api('/admin/logout',{method:'POST'});setAuthenticated(false);setRows([]);setEnquiries([]);setEditor(null)}}>Sign out</button></div></header>
+    {error&&<p role="alert" className="workflow-error">{error}</p>}{notice&&<p role="status" className="workflow-notice">{notice}</p>}
+    {editor?<PropertyForm key={editor.id||'new'} initial={editor} owner onCancel={()=>setEditor(null)} onSaved={()=>{setEditor(null);setNotice('Property saved. Approved listings are now visible on the website.');void refresh()}}/>:<><div className="owner-tabs">{['pending','approved','rejected','archived','all','enquiries'].map(t=><button className={tab===t?'active':''} key={t} onClick={()=>setTab(t)}>{t==='enquiries'?'Viewing requests':t} <span>{t==='enquiries'?enquiries.length:t==='all'?rows.length:rows.filter(p=>p.status===t).length}</span></button>)}<button className="workflow-primary" onClick={()=>{setEditor({...blank});setNotice('')}}>Add property +</button></div>
+    {tab==='enquiries'?<div className="owner-list">{!enquiries.length&&<p>No viewing requests yet.</p>}{enquiries.map(e=><article key={e.id}><div><span className="listing-status">{e.status}</span><h3>{e.property_title}</h3><p>{e.name} · <a href={`tel:${e.phone}`}>{e.phone}</a></p><p>{e.email}</p></div><div className="owner-row-actions">{['accepted','declined'].map(s=><button disabled={busy} key={s} onClick={async()=>{setBusy(true);try{await api('/admin/enquiries/'+e.id,{method:'PATCH',body:JSON.stringify({status:s})});await refresh()}catch(e){setError((e as Error).message)}finally{setBusy(false)}}}>{s==='accepted'?'Accept':'Decline'}</button>)}</div></article>)}</div>:<div className="owner-list">{!visible.length&&<p className="owner-empty">No {tab==='all'?'':tab} properties yet. Customer submissions appear here after they complete the Sell form.</p>}{visible.map(p=><article key={p.id}>{p.images?.[0]&&<img src={p.images[0]} alt={p.title}/>}<div className="owner-row-info"><span className={`listing-status ${p.status}`}>{p.status} · {p.source==='customer'?'Customer submission':'Owner listing'}</span><h3>{p.title}</h3><p>{p.locality}, {p.city} · {formatPrice(p.price)} · {p.area} {p.area_unit}</p><p className="private-contact">Seller: {p.contact_name||'Owner listing'} {p.contact_phone&&<>· <a href={`tel:${p.contact_phone}`}>{p.contact_phone}</a></>}</p></div><div className="owner-row-actions"><button onClick={()=>{setEditor(p);setNotice('')}}>Review / edit</button>{p.status!=='approved'&&<button disabled={busy} onClick={()=>void status(p,'approved')}>Approve & publish</button>}{p.status==='pending'&&<button disabled={busy} onClick={()=>void status(p,'rejected')}>Reject</button>}{p.status==='approved'&&<button disabled={busy} onClick={()=>void status(p,'archived')}>Unpublish</button>}</div></article>)}</div>}</>}
+  </main>
+}
+
+export function ListingDetails({id}:{id:string}){
+  const[p,setP]=useState<Property|null>(null),[error,setError]=useState(''),[active,setActive]=useState(0),[message,setMessage]=useState(''),[busy,setBusy]=useState(false)
+  useEffect(()=>{setP(null);setError('');setActive(0);api<Property>('/properties/'+id).then(setP).catch(e=>setError(e.message))},[id])
+  async function enquire(e:FormEvent<HTMLFormElement>){e.preventDefault();setBusy(true);setMessage('');const form=e.currentTarget,f=new FormData(form);try{await api('/enquiries',{method:'POST',body:JSON.stringify({propertyId:id,name:f.get('name'),phone:f.get('phone'),email:f.get('email')})});setMessage('Viewing request sent. Bhoomera Realty will contact you.');form.reset()}catch(e){setMessage((e as Error).message)}finally{setBusy(false)}}
+  if(error)return <main className="workflow-page"><h1>Property unavailable</h1><p>{error}</p><a href="#buy">Back to properties</a></main>
+  if(!p)return <main className="workflow-page">Loading property…</main>
+  const images=p.images||[]
+  return <main className="listing-details"><a className="listing-back" href={p.purpose==='rent'?'#rent':'#buy'}>← Back to properties</a><div className="listing-gallery">{images.length?<img src={images[active]} alt={`${p.title} — photo ${active+1}`}/>:<div className="no-photo">Photos available on request</div>}{images.length>1&&<div>{images.map((src,i)=><button key={src} aria-label={`Show photo ${i+1}`} className={i===active?'active':''} onClick={()=>setActive(i)}><img src={src} alt=""/></button>)}</div>}</div><div className="listing-layout"><section><span className="kicker">{p.property_type} / {p.purpose==='rent'?'FOR RENT':'FOR SALE'}</span><h1>{p.title}</h1><p className="listing-locality"><MapPin size={16}/>{p.locality}, {p.city}</p><div className="listing-facts"><span>{p.area} {p.area_unit}</span>{p.beds>0&&<span>{p.beds} bedrooms</span>}{p.baths>0&&<span>{p.baths} bathrooms</span>}{p.facing&&<span>{p.facing} facing</span>}</div><h2>About this property</h2><p className="listing-description">{p.description}</p><dl>{p.address&&<><dt>Location</dt><dd>{p.address}</dd></>}{p.approvals&&<><dt>Approval details</dt><dd>{p.approvals}</dd></>}{p.road_width&&<><dt>Road width</dt><dd>{p.road_width}</dd></>}{p.amenities&&<><dt>Amenities / features</dt><dd>{p.amenities}</dd></>}</dl><p className="form-help">Confirm current availability, approval documents and complete pricing with Bhoomera Realty before purchase.</p></section><aside><strong>{formatPrice(p.price)}{p.purpose==='rent'&&<small> / month</small>}</strong><h2>Arrange a site visit</h2><form onSubmit={enquire} hidden={GOOGLE_WORKFLOW}><label>Your name<input name="name" required/></label><label>Phone number<input name="phone" type="tel" required/></label><label>Email (optional)<input name="email" type="email"/></label><button className="workflow-primary" disabled={busy}>{busy?'Sending…':'Request a visit'}<ArrowRight size={16}/></button>{message&&<p role="status">{message}</p>}</form><a href={`https://wa.me/919849558210?text=${encodeURIComponent('Please share details about '+p.title)}`} target="_blank" rel="noreferrer">Request a site visit on WhatsApp ↗</a></aside></div></main>
+}
+
+export function SellPage(){return GOOGLE_WORKFLOW?<GoogleSellPage/>:<FileSellPage/>}
+export function OwnerConsole(){return GOOGLE_WORKFLOW?<GoogleOwnerPage/>:<FileOwnerConsole/>}

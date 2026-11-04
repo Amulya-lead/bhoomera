@@ -1,0 +1,53 @@
+import express from 'express'
+import { randomBytes, randomUUID, timingSafeEqual } from 'node:crypto'
+import { mkdir, readFile, writeFile, rename } from 'node:fs/promises'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..')
+const fields=['id','title','description','property_type','purpose','price','area','area_unit','city','locality','address','approvals','facing','road_width','amenities','images','beds','baths','status','created_at','updated_at']
+const publicProperty=p=>Object.fromEntries(fields.map(k=>[k,p[k]]))
+const text=(v,max=200)=>typeof v==='string'?v.trim().slice(0,max):''
+const equal=(a,b)=>{const x=Buffer.from(String(a)),y=Buffer.from(String(b));return x.length===y.length&&timingSafeEqual(x,y)}
+function fail(message,status=400){const e=new Error(message);e.status=status;throw e}
+function validate(input,contact=true){
+ if(!input||typeof input!=='object'||Array.isArray(input))fail('Property details are required')
+ const p={};for(const k of ['title','city','locality','address','approvals','facing','road_width','contact_name','contact_phone','contact_email'])p[k]=text(input[k])
+ p.description=text(input.description,5000);p.amenities=text(input.amenities,2000);p.property_type=text(input.property_type);p.purpose=text(input.purpose);p.area_unit=text(input.area_unit)
+ for(const k of ['price','area','beds','baths']){p[k]=Number(input[k]??0);if(!Number.isFinite(p[k])||p[k]<0||p[k]>1e12)fail(`Enter a valid ${k}`)}
+ if(p.title.length<5||p.description.length<20||!p.city||!p.locality)fail('Enter a title, description, city and locality')
+ if(!['Plot','Land','Apartment','House','Villa','Commercial'].includes(p.property_type)||!['sale','rent'].includes(p.purpose)||!['sq yd','sq ft','acres'].includes(p.area_unit))fail('Select valid type, purpose and area unit')
+ if(p.price<=0||p.area<=0)fail('Price and area must be greater than zero')
+ if(!Number.isInteger(p.beds)||!Number.isInteger(p.baths)||p.beds>100||p.baths>100)fail('Bedrooms and bathrooms must be whole numbers up to 100')
+ if(contact&&(!p.contact_name||!/^[+\d\s()-]{10,20}$/.test(p.contact_phone)))fail('Name and valid phone number are required')
+ if(p.contact_email&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(p.contact_email))fail('Enter a valid email')
+ if(!Array.isArray(input.images)||input.images.length>6)fail('Add up to 6 property photos')
+ p.images=input.images;return p
+}
+export async function createApp(options={}){
+ const app=express(),dataDir=path.resolve(options.dataDir||process.env.DATA_DIRECTORY||path.join(root,'data')),uploads=path.join(dataDir,'uploads'),file=path.join(dataDir,'properties.json')
+ const username=options.username??process.env.ADMIN_USERNAME,password=options.password??process.env.ADMIN_PASSWORD,production=options.production??process.env.NODE_ENV==='production',sessions=new Map(),limits=new Map()
+ await mkdir(uploads,{recursive:true});try{await readFile(file)}catch(e){if(e.code!=='ENOENT')throw e;await writeFile(file,JSON.stringify({properties:[],enquiries:[]},null,2),{flag:'wx',mode:0o600})}
+ async function read(){const db=JSON.parse(await readFile(file,'utf8'));if(!Array.isArray(db.properties)||!Array.isArray(db.enquiries))throw new Error('Invalid data file');return db}
+ let queue=Promise.resolve();function change(fn){const task=queue.then(async()=>{const db=await read(),result=await fn(db);await writeFile(file+'.tmp',JSON.stringify(db,null,2),{mode:0o600});await rename(file+'.tmp',file);return result});queue=task.catch(()=>{});return task}
+ app.disable('x-powered-by');app.use(express.json({limit:'18mb'}));app.use((req,res,next)=>{res.setHeader('X-Content-Type-Options','nosniff');if(req.path.startsWith('/api'))res.setHeader('Cache-Control','no-store');next()})
+ app.use('/uploads',express.static(uploads,{immutable:true,maxAge:'7d',dotfiles:'deny'}))
+ app.use('/api',(req,res,next)=>{if(!['GET','HEAD','OPTIONS'].includes(req.method)&&req.headers.origin){let host;try{host=new URL(req.headers.origin).host}catch{return res.status(403).json({error:'Invalid origin'})}if(host!==req.headers.host)return res.status(403).json({error:'Request must come from this website'})}next()})
+ function limit(bucket,max,windowMs){return(req,res,next)=>{const key=bucket+':'+req.ip,now=Date.now();if(limits.size>10000)for(const[k,v]of limits)if(v.until<now)limits.delete(k);const e=limits.get(key);if(e&&e.until>now){if(e.count>=max)return res.status(429).json({error:'Too many attempts. Try again later.'});e.count++}else limits.set(key,{count:1,until:now+windowMs});next()}}
+ function token(req){return String(req.headers.cookie||'').split(';').map(x=>x.trim()).find(x=>x.startsWith('bhoomera_session='))?.split('=')[1]}
+ function owner(req,res,next){const t=token(req),s=sessions.get(t);if(!s||s.expires<Date.now()){sessions.delete(t);return res.status(401).json({error:'Please sign in to the owner dashboard'})}next()}
+ const cookie=(t,age)=>`bhoomera_session=${t}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${age}${production?'; Secure':''}`
+ async function photos(images,existing=[]){const result=[];for(const image of images){if(typeof image!=='string')fail('Invalid photo');if(existing.includes(image)&&/^\/uploads\/[a-f0-9-]+\.(jpg|png|webp)$/.test(image)){result.push(image);continue}const m=image.match(/^data:image\/(jpeg|png|webp);base64,([A-Za-z0-9+/=]+)$/);if(!m)fail('Use JPG, PNG or WebP photos');const bytes=Buffer.from(m[2],'base64');if(bytes.length>2*1024*1024||bytes.length<12)fail('Each photo must be under 2 MB');const actual=bytes[0]===255&&bytes[1]===216&&bytes[2]===255?'jpeg':bytes.subarray(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10]))?'png':bytes.toString('ascii',0,4)==='RIFF'&&bytes.toString('ascii',8,12)==='WEBP'?'webp':null;if(actual!==m[1])fail('Photo content does not match its file type');const name=randomUUID()+'.'+(actual==='jpeg'?'jpg':actual);await writeFile(path.join(uploads,name),bytes,{flag:'wx'});result.push('/uploads/'+name)}return result}
+ app.get('/api/health',(_,res)=>res.json({status:'ok',storage:'files',ownerConfigured:Boolean(username&&password)}))
+ app.get('/api/properties',async(req,res)=>{let rows=(await read()).properties.filter(p=>p.status==='approved');const{purpose,q,type,min,max}=req.query;if(purpose)rows=rows.filter(p=>p.purpose===purpose);if(q){const term=String(q).toLowerCase();rows=rows.filter(p=>`${p.title} ${p.city} ${p.locality}`.toLowerCase().includes(term))}if(type)rows=rows.filter(p=>p.property_type===type);if(min)rows=rows.filter(p=>p.price>=Number(min));if(max)rows=rows.filter(p=>p.price<=Number(max));res.json(rows.map(publicProperty))})
+ app.get('/api/properties/:id',async(req,res)=>{const p=(await read()).properties.find(p=>p.id===req.params.id&&p.status==='approved');if(!p)return res.status(404).json({error:'Property is not available'});res.json(publicProperty(p))})
+ app.post('/api/submissions',limit('submit',10,3600000),async(req,res)=>{const p=validate(req.body);p.images=await photos(p.images);p.id=randomUUID();p.status='pending';p.source='customer';p.created_at=p.updated_at=new Date().toISOString();await change(db=>db.properties.unshift(p));res.status(201).json({id:p.id,status:p.status})})
+ app.post('/api/admin/login',limit('login',10,900000),(req,res)=>{if(!username||!password)return res.status(503).json({error:'Owner access is not configured'});if(!equal(req.body?.username,username)||!equal(req.body?.password,password))return res.status(401).json({error:'Incorrect username or password'});for(const[k,s]of sessions)if(s.expires<Date.now())sessions.delete(k);const t=randomBytes(32).toString('hex');sessions.set(t,{expires:Date.now()+28800000});res.setHeader('Set-Cookie',cookie(t,28800));res.json({authenticated:true})})
+ app.get('/api/admin/session',owner,(_,res)=>res.json({authenticated:true}));app.post('/api/admin/logout',(req,res)=>{sessions.delete(token(req));res.setHeader('Set-Cookie',cookie('',0));res.json({success:true})})
+ app.get('/api/admin/properties',owner,async(_,res)=>res.json((await read()).properties))
+ app.post('/api/admin/properties',owner,async(req,res)=>{const p=validate(req.body,false);p.images=await photos(p.images);p.status=req.body.status||'pending';if(!['pending','approved','rejected','archived'].includes(p.status))fail('Invalid status');p.id=randomUUID();p.source='owner';p.created_at=p.updated_at=new Date().toISOString();await change(db=>db.properties.unshift(p));res.status(201).json(p)})
+ app.patch('/api/admin/properties/:id',owner,async(req,res)=>{const result=await change(async db=>{const index=db.properties.findIndex(p=>p.id===req.params.id);if(index<0)fail('Property not found',404);const old=db.properties[index],p=validate({...old,...req.body},false);p.images=await photos(p.images,old.images);const status=req.body.status??old.status;if(!['pending','approved','rejected','archived'].includes(status))fail('Invalid status');db.properties[index]={...old,...p,status,updated_at:new Date().toISOString()};return db.properties[index]});res.json(result)})
+ app.post('/api/enquiries',limit('enquiry',20,3600000),async(req,res)=>{const{name,phone,email,propertyId}=req.body||{};if(!text(name)||!/^[+\d\s()-]{10,20}$/.test(text(phone)))fail('Enter your name and a valid phone number');if(email&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(text(email)))fail('Enter a valid email');const p=(await read()).properties.find(p=>p.id===propertyId&&p.status==='approved');if(!p)fail('Property is not available',404);await change(db=>db.enquiries.unshift({id:randomUUID(),property_id:p.id,property_title:p.title,name:text(name),phone:text(phone),email:text(email),status:'new',created_at:new Date().toISOString()}));res.status(201).json({success:true})})
+ app.get('/api/admin/enquiries',owner,async(_,res)=>res.json((await read()).enquiries));app.patch('/api/admin/enquiries/:id',owner,async(req,res)=>{if(!['new','accepted','declined'].includes(req.body?.status))fail('Invalid status');await change(db=>{const e=db.enquiries.find(x=>x.id===req.params.id);if(!e)fail('Enquiry not found',404);e.status=req.body.status});res.json({success:true})})
+ app.use(express.static(path.join(root,'dist')));app.get('/',(_,res)=>res.sendFile(path.join(root,'dist/index.html')))
+ app.use((err,req,res,next)=>{res.status(err.status||500).json({error:err.status?err.message:'Unable to save your request. Please try again.'})});return app
+}
