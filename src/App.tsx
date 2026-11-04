@@ -17,9 +17,10 @@ function BrandLogo() { return <a className="logo brand-logo" href="#top" aria-la
 
 function Header({onNavigate}: {onNavigate:(section:string)=>void}) {
  const [open,setOpen]=useState(false)
+ useEffect(()=>{if(!open)return;const close=(event:KeyboardEvent)=>{if(event.key==='Escape')setOpen(false)};window.addEventListener('keydown',close);const resize=()=>{if(window.innerWidth>900)setOpen(false)};window.addEventListener('resize',resize);return()=>{window.removeEventListener('keydown',close);window.removeEventListener('resize',resize)}},[open])
  const [light,setLight]=useState(()=>localStorage.getItem('BHOOMERA-mode')!=='dark')
  useEffect(()=>{document.documentElement.dataset.mode=light?'light':'dark';localStorage.setItem('BHOOMERA-mode',light?'light':'dark')},[light])
- return <header className="header scrolled"><BrandLogo/><nav className={open?'open':''}>{[['top','Home'],['buy','Buy'],['rent','Rent'],['sell','Sell'],['learn','Learn'],['about','About']].map(([section,label])=><button key={section} onClick={()=>{setOpen(false);onNavigate(section)}}>{label}</button>)}</nav><a className="header-contact" href={whatsapp} target="_blank" rel="noreferrer">Let’s talk <ArrowRight size={15}/></a><button className="theme-toggle" onClick={()=>setLight(!light)} aria-label={light?'Switch to dark theme':'Switch to light theme'}>{light?<Moon/>:<Sun/>}</button><button className="menu" onClick={()=>setOpen(!open)} aria-label="Menu" aria-expanded={open}>{open?<X/>:<Menu/>}</button></header>
+ return <header className="header scrolled"><BrandLogo/><nav id="main-navigation" aria-label="Main navigation" className={open?'open':''}>{[['top','Home'],['buy','Buy'],['rent','Rent'],['sell','Sell'],['learn','Learn'],['about','About']].map(([section,label])=><button key={section} onClick={()=>{setOpen(false);onNavigate(section)}}>{label}</button>)}</nav><a className="header-contact" href={whatsapp} target="_blank" rel="noreferrer">Let’s talk <ArrowRight size={15}/></a><button className="theme-toggle" onClick={()=>setLight(!light)} aria-label={light?'Switch to dark theme':'Switch to light theme'}>{light?<Moon/>:<Sun/>}</button><button className="menu" onClick={()=>setOpen(!open)} aria-label={open?'Close menu':'Open menu'} aria-controls="main-navigation" aria-expanded={open}>{open?<X/>:<Menu/>}</button></header>
 }
 
 export default function App() {

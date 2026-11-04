@@ -6,6 +6,7 @@ import './base.css'
 import './brand.css'
 import './premium.css'
 import './contrast.css'
+import './responsive.css'
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode><BrowserRouter><App /></BrowserRouter></React.StrictMode>
