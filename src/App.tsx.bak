@@ -1,0 +1,81 @@
+import { FormEvent, useEffect, useState } from 'react'
+import { ArrowRight, Bath, BedDouble, ChevronDown, Heart, Menu, MoveUpRight, Search, ShieldCheck, Square, X } from 'lucide-react'
+import { motion } from 'framer-motion'
+import { createClient } from '@supabase/supabase-js'
+
+const url=import.meta.env.VITE_SUPABASE_URL as string|undefined
+const key=import.meta.env.VITE_SUPABASE_ANON_KEY as string|undefined
+export const supabase=url&&key?createClient(url,key):null
+
+const listings=[
+ {id:'1',title:'The Olive Residence',city:'Mallorca, Spain',price:'ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬4,850,000',beds:5,baths:4,area:'6,420',purpose:'For sale',type:'Villa',image:'https://images.unsplash.com/photo-1600607687920-4e2a09cf159d?auto=format&fit=crop&w=1400&q=85'},
+ {id:'2',title:'Casa Serena',city:'Comporta, Portugal',price:'ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬2,950,000',beds:4,baths:3,area:'4,180',purpose:'For sale',type:'House',image:'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1400&q=85'},
+ {id:'3',title:'Avenue No. 8',city:'Paris, France',price:'ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬18,500 / mo',beds:3,baths:2,area:'2,760',purpose:'For rent',type:'Apartment',image:'https://images.unsplash.com/photo-1600566753086-00f18fb6b3ea?auto=format&fit=crop&w=1400&q=85'}
+]
+
+type Property=typeof listings[number]
+
+function Header({openAuth,openDashboard}:{openAuth:(mode:'login'|'signup')=>void,openDashboard:(tab?:string)=>void}){
+ const [open,setOpen]=useState(false); const [profileOpen,setProfileOpen]=useState(false); const [user,setUser]=useState<any>(null)
+ useEffect(()=>{supabase?.auth.getUser().then(({data})=>setUser(data.user));const sub=supabase?.auth.onAuthStateChange((_,session)=>setUser(session?.user??null)).data.subscription;return()=>sub?.unsubscribe()},[])
+ async function signOut(){await supabase?.auth.signOut();setProfileOpen(false)}
+ return <header className="header"><a className="logo" href="#top"><span>BHOOMERA</span><small>REAL ESTATES</small></a><nav className={open?'open':''}><a href="#top">Home</a><a href="#properties">Buy</a><a href="#properties">Rent</a><a href="#sell">Sell</a><a href="#explore">Explore</a><a href="#about">About</a></nav>{user?<div className="profile-control"><button className="header-profile" onClick={()=>setProfileOpen(!profileOpen)}><span>{(user.user_metadata?.full_name||user.email||'Member').charAt(0).toUpperCase()}</span><b>{user.user_metadata?.full_name||'My account'} <ChevronDown/></b></button>{profileOpen&&<div className="profile-dropdown"><button onClick={()=>{openDashboard('Overview');setProfileOpen(false)}}>My dashboard</button><button onClick={()=>{openDashboard('Profile settings');setProfileOpen(false)}}>Profile settings</button><button onClick={()=>{document.getElementById('properties')?.scrollIntoView({behavior:'smooth'});setProfileOpen(false)}}>Saved properties</button><hr/><button onClick={signOut}>Sign out</button></div>}</div>:<div className="header-actions"><button className="account-link" onClick={()=>openAuth('login')}>Login</button><button className="header-cta" onClick={()=>openAuth('signup')}>Sign up</button></div>}<button className="menu" onClick={()=>setOpen(!open)} aria-label="Menu">{open?<X/>:<Menu/>}</button></header>
+}
+
+function App(){
+ const [authOpen,setAuthOpen]=useState(false); const [dashboardOpen,setDashboardOpen]=useState(false); const [dashboardTab,setDashboardTab]=useState('Overview'); const [authMode,setAuthMode]=useState<'login'|'signup'>('login')
+ const openAuth=(mode:'login'|'signup')=>{setAuthMode(mode);setAuthOpen(true)}
+ const [purpose,setPurpose]=useState('Buy'); const [properties,setProperties]=useState<Property[]>(listings); const [query,setQuery]=useState(''); const [type,setType]=useState('Any property');
+ async function search(){let results=listings;if(query)results=results.filter(p=>p.city.toLowerCase().includes(query.toLowerCase())||p.title.toLowerCase().includes(query.toLowerCase()));if(type!=='Any property')results=results.filter(p=>p.type===type);if(supabase){const {data}=await supabase.from('properties').select('*').eq('status','approved');if(data?.length)results=data.map((p:any)=>({...p,image:p.cover_image||listings[0].image,price:p.listing_purpose==='rent'?`${p.currency||'ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬'}${p.price} / mo`:`${p.currency||'ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬'}${p.price}`}));}setProperties(results.length?results:listings);document.getElementById('properties')?.scrollIntoView({behavior:'smooth'})}
+ return <><Header openAuth={openAuth} openDashboard={(tab)=>{setDashboardTab(tab||'Overview');setDashboardOpen(true)}}/><main id="top"><section className="hero"><div className="hero-shade"/><motion.div className="hero-copy" initial={{opacity:0,y:25}} animate={{opacity:1,y:0}} transition={{duration:.9}}><div className="eyebrow">A CONSIDERED WAY OF LIVING</div><h1>Find a place that<br/><em>feels like yours.</em></h1><p>Exceptional homes. Remarkable locations.<br/>Thoughtfully curated for the way you live.</p></motion.div><motion.div className="search-box" initial={{opacity:0,y:30}} animate={{opacity:1,y:0}} transition={{delay:.3,duration:.8}}><div className="purpose-toggle"><button className={purpose==='Buy'?'active':''} onClick={()=>setPurpose('Buy')}>Buy</button><button className={purpose==='Rent'?'active':''} onClick={()=>setPurpose('Rent')}>Rent</button></div><div className="search-fields"><label><span>LOCATION</span><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="City, area or neighbourhood"/></label><label><span>PROPERTY TYPE</span><select value={type} onChange={e=>setType(e.target.value)}><option>Any property</option><option>Villa</option><option>House</option><option>Apartment</option></select></label><button className="search-submit" onClick={search}><Search/><span>Search</span></button></div></motion.div></section>
+<section className="collection" id="properties"><div className="section-heading"><div><span className="kicker">THE PRIVATE COLLECTION</span><h2>Homes of distinction</h2></div><a href="#properties">View all properties <ArrowRight/></a></div><div className="property-grid">{properties.map((p,index)=><PropertyCard key={p.id} property={p} index={index}/>)}</div></section>
+<section className="categories" id="explore"><span className="kicker">EXPLORE BHOOMERA</span><h2>A home for every<br/><em>way of living.</em></h2><div className="category-grid">{['Apartments','Independent houses','Villas','Residential plots','Commercial','Luxury homes'].map((name,i)=><a href="#properties" key={name}><span>0{i+1}</span><strong>{name}</strong><MoveUpRight/></a>)}</div></section>
+<section className="trust" id="about"><div><span className="kicker">THE BHOOMERA PROMISE</span><h2>Exceptional homes deserve<br/>an exceptional experience.</h2></div><div className="trust-grid"><article><ShieldCheck/><h3>Verified listings</h3><p>Every property is personally reviewed for quality, accuracy and authenticity.</p></article><article><Search/><h3>Thoughtful discovery</h3><p>Powerful search, refined filters and local insight without the clutter.</p></article><article><Heart/><h3>Genuinely personal</h3><p>Dedicated specialists who understand your ambitions, not just your brief.</p></article></div></section>
+<section className="sell" id="sell"><div><span className="kicker">LIST WITH BHOOMERA</span><h2>Your property,<br/><em>represented exceptionally.</em></h2></div><p>Access qualified buyers, premium presentation and expert guidance from valuation to completion.</p><a href="#auth">List your property <ArrowRight/></a></section>
+</main><Footer/><DashboardModal open={dashboardOpen} initialTab={dashboardTab} onClose={()=>setDashboardOpen(false)} /><AuthModal open={authOpen} initialMode={authMode} onClose={()=>{setAuthOpen(false)}} onSuccess={()=>setAuthOpen(false)} /></>
+}
+
+function PropertyCard({property:p,index}:{property:Property,index:number}){const [saved,setSaved]=useState(false);return <motion.article className="property-card" initial={{opacity:0,y:30}} whileInView={{opacity:1,y:0}} viewport={{once:true}} transition={{delay:index*.08}}><div className="property-image" style={{backgroundImage:`url(${p.image})`}}><span>{p.purpose}</span><button className={saved?'saved':''} onClick={()=>setSaved(!saved)} aria-label="Save property"><Heart/></button></div><div className="property-body"><span className="location">{p.city}</span><div className="property-title"><h3>{p.title}</h3><strong>{p.price}</strong></div><div className="property-meta"><span><BedDouble/> {p.beds} beds</span><span><Bath/> {p.baths} baths</span><span><Square/> {p.area} sq ft</span></div></div></motion.article>}
+
+function AuthModal({open,initialMode,onClose,onSuccess}:{open:boolean,initialMode:'login'|'signup',onClose:()=>void,onSuccess:()=>void}){const [mode,setMode]=useState(initialMode);useEffect(()=>{if(open)setMode(initialMode)},[open,initialMode]);if(!open)return null;return <div className="auth-modal-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget)onClose()}}><section className="auth-modal-panel" role="dialog" aria-modal="true"><button className="modal-close" onClick={onClose} aria-label="Close"><X/></button><AuthPanel mode={mode} setMode={setMode} onSuccess={onSuccess}/></section></div>}
+
+function AuthPanel({mode,setMode,onSuccess}:{mode:'login'|'signup',setMode:(mode:'login'|'signup')=>void,onSuccess:()=>void}){
+ const [message,setMessage]=useState(''); const [loading,setLoading]=useState(false);
+ async function submit(e:FormEvent<HTMLFormElement>) {
+  e.preventDefault(); setMessage(''); setLoading(true);
+  try {
+   const data=new FormData(e.currentTarget);
+   const email=String(data.get('email')||'').trim();
+   const password=String(data.get('password')||'');
+   if(!supabase){setMessage('Authentication is not configured. Check your Supabase environment values.');return}
+   if(mode==='signup') {
+    const username=String(data.get('username')||'').trim().toLowerCase();
+    if(!/^[a-zA-Z0-9_.]{3,30}$/.test(username)){setMessage('Username must be 3-30 characters.');return}
+    const apiUrl=(import.meta.env.VITE_API_URL as string|undefined)?.replace(/\/$/,'');
+    if(apiUrl){
+     const response=await fetch(apiUrl+'/api/auth/dev-signup',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password,fullName:data.get('name'),username,role:data.get('role')})});
+     const result=await response.json().catch(()=>({error:'Invalid response'}));
+     if(!response.ok){setMessage(result.error||'Signup failed');return}
+     const login=await supabase.auth.signInWithPassword({email,password});
+     if(login.error)setMessage(login.error.message);else onSuccess();
+    } else {
+     const {error}=await supabase.auth.signUp({email,password,options:{emailRedirectTo:window.location.origin,data:{full_name:data.get('name'),username,account_type:data.get('role')}}});
+     setMessage(error?error.message:'Account created. Please check your email.')
+    }
+   } else {
+    const {error}=await supabase.auth.signInWithPassword({email,password}); if(error)setMessage(error.message);else onSuccess();
+   }
+  } catch(error){setMessage(error instanceof Error?error.message:'The request failed.')}
+  finally{setLoading(false)}
+ }
+ return <div className="auth-wrap"><div><span className="kicker">MEMBER ACCESS</span><h2>Your next chapter<br/>starts here.</h2><p>Save remarkable homes and manage your enquiries.</p></div><form onSubmit={submit}><div className="auth-tabs"><button type="button" className={mode==='login'?'active':''} onClick={()=>setMode('login')}>Login</button><button type="button" className={mode==='signup'?'active':''} onClick={()=>setMode('signup')}>Sign up</button></div>{mode==='signup'&&<><input name="name" required placeholder="Full name"/><input name="username" required placeholder="Username"/><select name="role" defaultValue="buyer"><option value="buyer">Buyer</option><option value="seller">Seller</option><option value="agent">Agent</option></select></>}<input name="email" type="email" required placeholder="Email address"/><input name="password" type="password" minLength={8} required placeholder="Password"/><button className="auth-submit" type="submit" disabled={loading}>{loading?(mode==='login'?'Signing in...':'Creating account...'):mode==='login'?'Login to BHOOMERA':'Create account'} <ArrowRight/></button>{message&&<p className="auth-message">{message}</p>}</form></div>
+}
+function DashboardModal({open,initialTab,onClose}:{open:boolean,initialTab:string,onClose:()=>void}){
+ const [tab,setTab]=useState(initialTab); useEffect(()=>{if(open)setTab(initialTab)},[open,initialTab]); const [name,setName]=useState(''); const [email,setEmail]=useState(''); const [saved,setSaved]=useState<string[]>([]);
+ useEffect(()=>{if(!open)return;supabase?.auth.getUser().then(({data})=>{setName(data.user?.user_metadata?.full_name||data.user?.email?.split('@')[0]||'Member');setEmail(data.user?.email||'')});supabase?.from('favourites').select('property_id').then(({data})=>setSaved(data?.map((item:any)=>item.property_id)||[]))},[open]);
+ if(!open)return null;
+ async function saveProfile(){if(!supabase)return;const {error}=await supabase.auth.updateUser({data:{full_name:name}});if(!error)onClose()}
+ return <div className="dashboard-backdrop"><aside className="dashboard-panel"><div className="dashboard-head"><div><span className="kicker">PRIVATE MEMBER AREA</span><h2>{tab}</h2></div><button onClick={onClose} aria-label="Close dashboard"><X/></button></div><div className="dashboard-layout"><nav><button className={tab==='Overview'?'active':''} onClick={()=>setTab('Overview')}>Overview</button><button className={tab==='Profile settings'?'active':''} onClick={()=>setTab('Profile settings')}>Profile settings</button><button className={tab==='Saved properties'?'active':''} onClick={()=>setTab('Saved properties')}>Saved properties <span>{saved.length}</span></button><button className={tab==='Enquiries'?'active':''} onClick={()=>setTab('Enquiries')}>Enquiries</button><button className={tab==='Viewings'?'active':''} onClick={()=>setTab('Viewings')}>Viewings</button></nav><div className="dashboard-content">{tab==='Overview'&&<><div className="dashboard-welcome"><span>Welcome back,</span><h3>{name}</h3></div><div className="dashboard-stats"><article><strong>{saved.length}</strong><span>Saved properties</span></article><article><strong>0</strong><span>Enquiries</span></article><article><strong>0</strong><span>Upcoming viewings</span></article></div></>} {tab==='Profile settings'&&<div className="profile-form"><label>Full name<input value={name} onChange={e=>setName(e.target.value)} /></label><label>Email<input value={email} disabled /></label><button onClick={saveProfile}>Save changes</button></div>} {tab==='Saved properties'&&<div className="empty-state"><Heart/><h3>No saved properties yet</h3><p>Use the heart button on a property to add it here.</p></div>} {(tab==='Enquiries'||tab==='Viewings')&&<div className="empty-state"><h3>No {tab.toLowerCase()} yet</h3><p>New activity will appear here.</p></div>}</div></div></aside></div>
+}
+function Footer(){return <footer><a className="logo dark" href="#top"><span>BHOOMERA</span><small>REAL ESTATES</small></a><p>Exceptional properties, thoughtfully found.</p><div><a href="#">Instagram</a><a href="#">Privacy</a><a href="#">Terms</a></div></footer>}
+export default App
