@@ -37,7 +37,7 @@ body .calculator-panel{background:var(--surface);color:var(--ink)}body .calculat
 .property-form input,.property-form textarea,.property-form select,.owner-login input,.listing-layout aside input{background:var(--surface);color:var(--ink);border-color:var(--line)}
 .google-form-shell{background:var(--soft)}.google-form-shell iframe{color-scheme:light}
 .property-form input[type=range],input[type=range]{accent-color:#6f8154}
-.hero{background-color:#153e31}.hero-video{position:absolute;inset:0;overflow:hidden;z-index:0;pointer-events:none;container-type:size;opacity:0;transition:opacity 1.2s ease}
+.hero{background-color:#153e31}.hero-video{position:absolute;inset:0;overflow:hidden;z-index:0;pointer-events:none;container-type:size;opacity:0}
 .hero-video.is-ready{opacity:1}
 .hero-video iframe{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) scale(1.16);width:max(100cqw,177.78cqh);height:max(100cqh,56.25cqw);border:0;pointer-events:none}
 .hero-video-toggle{position:absolute;right:8%;top:30px;z-index:3;display:flex;align-items:center;gap:8px;padding:10px 13px;border:1px solid #e3d4ad99;background:#102d23d9;color:#fff;font-size:10px}
