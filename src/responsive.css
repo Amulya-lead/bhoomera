@@ -185,3 +185,19 @@ body .brand-footer>div a{display:inline-flex;align-items:center;min-height:44px;
 }
 @media(max-height:500px) and (min-width:681px){body .hero{padding-top:55px;min-height:600px}.header nav.open{max-height:calc(100dvh - 95px)}}
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+
+.enquiry-form-shell iframe{width:100%;height:1250px;min-height:1250px;border:0;display:block}
+@media(max-width:600px){.enquiry-form-shell iframe{height:1400px;min-height:1400px}}
+
+.native-form-panel{max-width:1000px;border:1px solid var(--line);background:var(--cream);border-radius:16px;overflow:hidden}
+.native-form-intro{display:flex;align-items:center;gap:15px;padding:24px 32px;border-bottom:1px solid var(--line);color:var(--ink)}
+.native-form-intro svg{color:var(--gold);flex-shrink:0}.native-form-intro p{margin:0;font-size:16px}.native-form-intro span{display:block;font-size:12px;color:var(--muted);margin-top:6px}
+.native-google-form{border:0;background:transparent;max-width:none}.native-google-form[hidden],.native-receipt[hidden]{display:none}
+.native-google-form input,.native-google-form select,.native-google-form textarea{border-radius:7px;min-width:0}.native-google-form input:focus-visible,.native-google-form select:focus-visible,.native-google-form textarea:focus-visible{outline:2px solid var(--gold);outline-offset:3px}
+.native-google-form .native-consent{display:flex;flex-direction:row;align-items:flex-start;gap:12px;line-height:1.7;margin:25px 0}.native-consent input{width:18px;height:18px;min-height:18px;flex-shrink:0;accent-color:#153e31}.native-google-form>.workflow-primary{margin-top:24px;border-radius:7px}
+.native-receipt{padding:30px}.native-receipt h2{font:32px 'Instrument Serif',Georgia,serif}.native-receipt iframe{width:100%;height:650px;border:0;background:white;border-radius:8px}.native-retry{border:1px solid var(--line);background:transparent;color:var(--ink);padding:12px 18px;margin-top:20px;cursor:pointer}
+@media(max-width:600px){.native-form-intro{padding:22px 18px}.native-receipt{padding:20px 14px}.native-google-form>.workflow-primary{width:100%}}
+
+.native-google-form .native-fields{border:0;margin:0;padding:0}.native-form-error{padding:16px;border:1px solid #bc6454;border-radius:8px;color:var(--ink);font-size:13px;line-height:1.7;background:var(--cream)}
+.native-receipt{padding:55px 40px;text-align:center;color:var(--ink)}.native-receipt>svg{display:block;margin:0 auto 24px;color:var(--gold)}.native-receipt>.kicker{display:block;font-size:10px;line-height:1.7}.native-receipt h2{font-size:clamp(30px,4vw,44px);line-height:1.15;margin:20px 0}.native-receipt>p{max-width:520px;margin:0 auto 28px;font-size:14px;line-height:1.9;color:var(--muted)}.native-home-link{display:block;margin-top:22px;font-size:12px;text-decoration:underline}.native-receipt:focus{outline:2px solid var(--gold);outline-offset:-3px}
+@media(max-width:600px){.native-receipt{padding:38px 20px}}

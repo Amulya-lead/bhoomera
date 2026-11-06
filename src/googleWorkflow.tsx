@@ -1,3 +1,4 @@
+import NativeGoogleForm from './NativeGoogleForm'
 import { ArrowRight, ExternalLink, ShieldCheck } from 'lucide-react'
 import type { Property } from './PropertyWorkflow'
 
@@ -25,7 +26,7 @@ function readFeed(): Promise<Property[]> {
 }
 
 export async function googleApi(url:string):Promise<unknown> {
-  if(!url.startsWith('/properties'))throw new Error('Property management is now in the private Google Sheet. Contact us on WhatsApp for site visits.')
+  if(!url.startsWith('/properties'))throw new Error('Property management is now in the private Google Sheet. Use the customer enquiry form for site visits.')
   const parsed=new URL(url,'https://bhoomera.local')
   const properties=await readFeed()
   if(parsed.pathname.startsWith('/properties/')){
@@ -44,6 +45,18 @@ export async function googleApi(url:string):Promise<unknown> {
   })
 }
 
-export function GoogleSellPage(){return <main className="workflow-page google-sell"><div className="workflow-heading"><span className="kicker">SELL WITH BHOOMERA REALTY</span><h1>Your property.<br/><em>Our personal attention.</em></h1><p>Share your property details below. We’ll review the information and contact you before publishing your listing.</p><a className="inline-contact" href={GOOGLE_FORM} target="_blank" rel="noreferrer">Open form in a new tab <ExternalLink size={15}/></a></div><div className="google-form-shell"><iframe src={GOOGLE_FORM+'?embedded=true'} title="Sell Your Property — Bhoomera Realty" loading="lazy" referrerPolicy="strict-origin-when-cross-origin"/><p className="form-help">If the form does not load, <a href={GOOGLE_FORM} target="_blank" rel="noreferrer">open it here</a>. Send property photos on <a href="https://wa.me/919849558210" target="_blank" rel="noreferrer">WhatsApp: 98495 58210</a>.</p></div></main>}
+export function GoogleSellPage(){return <main className="workflow-page google-sell"><div className="workflow-heading"><span className="kicker">SELL WITH BHOOMERA REALTY</span><h1>Your property.<br/><em>Our personal attention.</em></h1><p>Share your property details below. We’ll review the information and contact you before publishing your listing.</p></div><NativeGoogleForm kind="sell"/></main>}
 
 export function GoogleOwnerPage(){return <main className="workflow-page google-owner"><a className="listing-back" href="#top">← Back to website</a><div className="workflow-heading"><span className="kicker">BHOOMERA REALTY / OWNER</span><h1>Manage properties<br/><em>in Google Sheets.</em></h1><p>Use the Google account that owns the Sheet. Access is protected by Google; no separate website password is needed.</p></div><div className="google-owner-panel"><ShieldCheck size={30}/><h2>Your private property workspace</h2><p>Review submissions, edit listing details, add public photo URLs, and choose a status. Only approved listings appear on the website.</p><a className="workflow-primary" href={GOOGLE_SHEET} target="_blank" rel="noreferrer">Open property Sheet <ExternalLink size={17}/></a><ol><li><strong>Review:</strong> Check the customer’s details and property information.</li><li><strong>Edit:</strong> Update any fields and add public image links under <b>Public photo URLs</b>.</li><li><strong>Publish:</strong> Set <b>Status</b> to <b>Approved</b>. Sale listings appear on Buy; rentals appear on Rent.</li><li><strong>Unpublish:</strong> Change Status to <b>Archived</b> or <b>Rejected</b>.</li></ol><p className="form-help">To add a property yourself, add a new row with its details and a unique Property ID, such as BHR-001. Leave seller contact fields private. Approved rows need a title, city, locality, positive price and area.</p><a className="inline-contact" href="#buy">View published properties <ArrowRight size={15}/></a></div></main>}
+
+
+export const ENQUIRY_FORM = 'https://docs.google.com/forms/d/e/1FAIpQLSda-pQs3MkDiNnnXc24wKtka3WZItCl2C5hdrxztWMB7alcXA/viewform'
+export function enquiryLink(property = '', reference = '') {
+  return '#enquire?' + new URLSearchParams({property, reference})
+}
+export function GoogleEnquiryPage() {
+  const params = new URLSearchParams(location.hash.split('?')[1] || '')
+  const property = params.get('property') || ''
+  const reference = params.get('reference') || ''
+  return <main className="workflow-page google-sell"><div className="workflow-heading"><a className="listing-back" href={reference ? '#property-' + encodeURIComponent(reference) : '#top'}>← Back</a><span className="kicker">ENQUIRE WITH BHOOMERA REALTY</span><h1>Let’s find your<br/><em>next property.</em></h1><p>{property ? 'Enquiring about: ' + property : 'Tell us what you’re looking for or request a site visit. Our team will contact you.'}</p></div><NativeGoogleForm key={property+reference} kind="enquiry" property={property} reference={reference}/></main>
+}

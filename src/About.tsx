@@ -17,7 +17,7 @@ export default function About() {
         <p>I’m Rambabu. With two years in Hyderabad real estate, I’ve supported more than 30 clients through successful property closures. Bhoomera Realty brings that experience to your property search.</p>
         <p>From open plots and land opportunities to homes, I help you understand locations, connectivity, approvals and the questions to ask before taking the next step.</p>
         <div className="about-track-record" aria-label="Experience"><div><strong>02<span>years</span></strong><p>Hyderabad real estate experience</p></div><div><strong>30<span>+</span></strong><p>Clients supported with property closures</p></div></div>
-        <a className="about-contact" href="https://wa.me/919849558210" target="_blank" rel="noreferrer">Have a conversation <span><ArrowRight size={18}/></span></a>
+        <a className="about-contact" href="#enquire">Send an enquiry <span><ArrowRight size={18}/></span></a>
       </div>
       <div className="about-principles"><article><ShieldCheck/><div><h3>Clarity first</h3><p>Property details and document checks, explained simply.</p></div></article><article><MapPin/><div><h3>Rooted in Hyderabad</h3><p>Local focus across Yacharam, Kandukur and surrounding areas.</p></div></article><article><Heart/><div><h3>Personal attention</h3><p>Support shaped around your requirements and budget.</p></div></article></div>
     </section>

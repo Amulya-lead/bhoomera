@@ -1,4 +1,5 @@
 import express from 'express'
+import { submitGoogleForm } from './google-submit.js'
 import { randomBytes, randomUUID, timingSafeEqual } from 'node:crypto'
 import { mkdir, readFile, writeFile, rename } from 'node:fs/promises'
 import path from 'node:path'
@@ -37,6 +38,7 @@ export async function createApp(options={}){
  function owner(req,res,next){const t=token(req),s=sessions.get(t);if(!s||s.expires<Date.now()){sessions.delete(t);return res.status(401).json({error:'Please sign in to the owner dashboard'})}next()}
  const cookie=(t,age)=>`bhoomera_session=${t}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${age}${production?'; Secure':''}`
  async function photos(images,existing=[]){const result=[];for(const image of images){if(typeof image!=='string')fail('Invalid photo');if(existing.includes(image)&&/^\/uploads\/[a-f0-9-]+\.(jpg|png|webp)$/.test(image)){result.push(image);continue}const m=image.match(/^data:image\/(jpeg|png|webp);base64,([A-Za-z0-9+/=]+)$/);if(!m)fail('Use JPG, PNG or WebP photos');const bytes=Buffer.from(m[2],'base64');if(bytes.length>2*1024*1024||bytes.length<12)fail('Each photo must be under 2 MB');const actual=bytes[0]===255&&bytes[1]===216&&bytes[2]===255?'jpeg':bytes.subarray(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10]))?'png':bytes.toString('ascii',0,4)==='RIFF'&&bytes.toString('ascii',8,12)==='WEBP'?'webp':null;if(actual!==m[1])fail('Photo content does not match its file type');const name=randomUUID()+'.'+(actual==='jpeg'?'jpg':actual);await writeFile(path.join(uploads,name),bytes,{flag:'wx'});result.push('/uploads/'+name)}return result}
+ app.post('/api/google-submit',limit('google-submit',20,3600000),async(req,res)=>{try{res.json(await submitGoogleForm(req.body))}catch(error){res.status(error.status||500).json({error:error.status?error.message:'Unable to send your request. Please try again.'})}})
  app.get('/api/health',(_,res)=>res.json({status:'ok',storage:'files',ownerConfigured:Boolean(username&&password)}))
  app.get('/api/properties',async(req,res)=>{let rows=(await read()).properties.filter(p=>p.status==='approved');const{purpose,q,type,min,max}=req.query;if(purpose)rows=rows.filter(p=>p.purpose===purpose);if(q){const term=String(q).toLowerCase();rows=rows.filter(p=>`${p.title} ${p.city} ${p.locality}`.toLowerCase().includes(term))}if(type)rows=rows.filter(p=>p.property_type===type);if(min)rows=rows.filter(p=>p.price>=Number(min));if(max)rows=rows.filter(p=>p.price<=Number(max));res.json(rows.map(publicProperty))})
  app.get('/api/properties/:id',async(req,res)=>{const p=(await read()).properties.find(p=>p.id===req.params.id&&p.status==='approved');if(!p)return res.status(404).json({error:'Property is not available'});res.json(publicProperty(p))})
