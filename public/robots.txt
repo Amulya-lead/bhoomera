@@ -1,0 +1,6 @@
+# Bhoomera Realty Robots.txt
+User-agent: *
+Allow: /
+
+# Sitemaps
+Sitemap: https://bhoomera.com/sitemap.xml

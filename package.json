@@ -6,7 +6,8 @@
   "engines": { "node": ">=22" },
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "generate-seo": "node scripts/generate-seo-pages.js",
+    "build": "node scripts/generate-seo-pages.js && tsc -b && vite build",
     "preview": "vite preview",
     "server": "node --env-file-if-exists=.env server/start.js",
     "test": "node --test",
