@@ -6,7 +6,7 @@ import { ALL_SEO_PAGES } from './future-city-hayathnagar-data.js';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT_DIR = path.resolve(__dirname, '..');
 const PUBLIC_DIR = path.join(ROOT_DIR, 'public');
-const SITE_DOMAIN = 'https://bhoomera.com';
+const SITE_DOMAIN = process.env.SITE_DOMAIN || 'https://www.bhoomerarealty.com';
 const PHONE_NUMBER = '+91 98495 58210';
 const PHONE_RAW = '9849558210';
 const WHATSAPP_BASE = `https://wa.me/91${PHONE_RAW}`;

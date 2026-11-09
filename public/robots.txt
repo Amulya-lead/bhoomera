@@ -3,4 +3,4 @@ User-agent: *
 Allow: /
 
 # Sitemaps
-Sitemap: https://bhoomera.com/sitemap.xml
+Sitemap: https://www.bhoomerarealty.com/sitemap.xml
